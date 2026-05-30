@@ -47,8 +47,9 @@ import type { PhoneInfo } from "@/types";
 
 // ── API Config Tab ─────────────────────────────────────────────────────────────
 
-function APIConfigTab() {
-  const { config, loading, refetch } = useWAConfig();
+type WAConfigHook = ReturnType<typeof useWAConfig>;
+
+function APIConfigTab({ config, loading, refetch }: WAConfigHook) {
   const [showToken, setShowToken] = useState(false);
   const [testing, setTesting] = useState(false);
   const [phoneInfo, setPhoneInfo] = useState<PhoneInfo | null>(null);
@@ -317,8 +318,7 @@ function APIConfigTab() {
 
 // ── Webhook Tab ───────────────────────────────────────────────────────────────
 
-function WebhookTab() {
-  const { config, refetch } = useWAConfig();
+function WebhookTab({ config, refetch }: Pick<WAConfigHook, "config" | "refetch">) {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [verifyToken, setVerifyToken] = useState(
     config?.webhookVerifyToken ?? ""
@@ -544,6 +544,7 @@ function ProfileTab() {
 
 export default function SettingsPage() {
   const { setSidebarOpen } = useAppStore();
+  const waConfig = useWAConfig();
 
   return (
     <div className="flex h-full flex-col">
@@ -573,7 +574,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <APIConfigTab />
+                  <APIConfigTab {...waConfig} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -587,7 +588,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <WebhookTab />
+                  <WebhookTab config={waConfig.config} refetch={waConfig.refetch} />
                 </CardContent>
               </Card>
             </TabsContent>
