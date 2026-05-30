@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum TemplateCategory {
+  MARKETING
+  TRANSACTIONAL
+  AUTH
+  UTILITY
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum MessageType {
+  TEXT
+  TEMPLATE
+  IMAGE
+  DOCUMENT
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum MatchType {
+  EXACT
+  CONTAINS
+  STARTS_WITH
+  REGEX
+}
+
+enum BotAction {
+  REPLY_TEXT
+  SEND_TEMPLATE
+  ESCALATE
+  OOO
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  password      String
+  name          String
+  role          Role              @default(AGENT)
+  waConfig      WAConfig?
+  contacts      Contact[]
+  templates     MessageTemplate[]
+  campaigns     Campaign[]
+  logs          MessageLog[]
+  webhookEvents WebhookEvent[]
+  botRules      BotRule[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model WAConfig {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneNumberId      String
+  accessToken        String
+  wabaId             String
+  apiVersion         String   @default("v21.0")
+  displayName        String?
+  webhookVerifyToken String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String
+  name      String?
+  tags      String[]
+  optedOut  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, phone])
+}
+
+model MessageTemplate {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  category       TemplateCategory @default(MARKETING)
+  language       String           @default("en_US")
+  body           String
+  headerText     String?
+  footerText     String?
+  variableCount  Int              @default(0)
+  isApproved     Boolean          @default(false)
+  metaTemplateId String?
+  campaigns      Campaign[]
+  botRules       BotRule[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Campaign {
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  status          CampaignStatus   @default(DRAFT)
+  messageType     MessageType      @default(TEXT)
+  messageBody     String?
+  templateId      String?
+  template        MessageTemplate? @relation(fields: [templateId], references: [id])
+  mediaUrl        String?
+  totalRecipients Int              @default(0)
+  sentCount       Int              @default(0)
+  deliveredCount  Int              @default(0)
+  failedCount     Int              @default(0)
+  delayMs         Int              @default(1200)
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  logs            MessageLog[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model MessageLog {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId   String?
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  toPhone      String
+  toName       String?
+  messageType  String
+  messageBody  String?
+  status       MessageStatus @default(PENDING)
+  wamid        String?
+  errorCode    String?
+  errorMessage String?
+  sentAt       DateTime      @default(now())
+  deliveredAt  DateTime?
+  readAt       DateTime?
+
+  @@index([userId, sentAt])
+  @@index([userId, status, sentAt])
+  @@index([userId, toPhone])
+  @@index([wamid])
+}
+
+model WebhookEvent {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType  String
+  fromPhone  String
+  payload    Json
+  processed  Boolean  @default(false)
+  receivedAt DateTime @default(now())
+
+  @@index([userId, fromPhone])
+  @@index([userId, receivedAt])
+}
+
+model BotRule {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyword    String
+  matchType  MatchType        @default(CONTAINS)
+  action     BotAction        @default(REPLY_TEXT)
+  replyText  String?
+  templateId String?
+  template   MessageTemplate? @relation(fields: [templateId], references: [id])
+  isActive   Boolean          @default(true)
+  priority   Int              @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
