@@ -62,20 +62,23 @@ export const authOptions: NextAuthOptions = {
           a.length === b.length && timingSafeEqual(a, b);
         if (!passwordMatch) return null;
 
-        // Upsert so userId exists for all data associations
-        const user = await prisma.user.upsert({
-          where: { email: adminEmail },
-          update: {},
-          create: {
-            email: adminEmail,
-            name: "Admin",
-            password: await bcrypt.hash(adminPassword, 10),
-            role: "ADMIN",
-          },
-          select: { id: true, email: true, name: true, role: true },
-        });
-
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+        try {
+          const user = await prisma.user.upsert({
+            where: { email: adminEmail },
+            update: {},
+            create: {
+              email: adminEmail,
+              name: "Admin",
+              password: await bcrypt.hash(adminPassword, 10),
+              role: "ADMIN",
+            },
+            select: { id: true, email: true, name: true, role: true },
+          });
+          return { id: user.id, email: user.email, name: user.name, role: user.role };
+        } catch {
+          // DB unavailable — return env-based admin so login still works
+          return { id: "env-admin", email: adminEmail, name: "Admin", role: "ADMIN" as Role };
+        }
       },
     }),
   ],

@@ -21,7 +21,15 @@ export async function GET() {
     return NextResponse.json({ config: null });
   }
 
-  const decrypted = decrypt(config.accessToken);
+  let decrypted: string;
+  try {
+    decrypted = decrypt(config.accessToken);
+  } catch {
+    return NextResponse.json(
+      { error: "The access token could not be decrypted — re-save your WhatsApp config with a fresh token" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     config: {
@@ -70,7 +78,14 @@ export async function PUT(req: Request) {
     }
     encryptedToken = existing.accessToken;
   } else {
-    encryptedToken = encrypt(rawToken);
+    try {
+      encryptedToken = encrypt(rawToken);
+    } catch (e) {
+      return NextResponse.json(
+        { error: `Encryption failed: ${e instanceof Error ? e.message : "unknown error"}` },
+        { status: 500 }
+      );
+    }
   }
 
   const data: Prisma.WAConfigUncheckedCreateInput = {
