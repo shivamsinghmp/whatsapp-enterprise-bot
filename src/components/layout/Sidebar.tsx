@@ -127,9 +127,9 @@ export function Sidebar({ className }: SidebarProps) {
     fetch("/api/config")
       .then((r) => r.json())
       .then((d) => {
-        if (d.config?.displayName) {
-          setPhoneDisplay(d.config.displayName);
-          setApiOk(d.config.isActive);
+        if (d.config) {
+          setPhoneDisplay(d.config.displayName ?? d.config.phoneNumberId ?? null);
+          setApiOk(d.config.isActive ?? false);
         } else {
           setApiOk(false);
         }
