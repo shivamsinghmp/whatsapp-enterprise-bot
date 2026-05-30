@@ -39,13 +39,30 @@ import { cn, formatPhone } from "@/lib/utils";
 
 const E164 = /^\+[1-9]\d{7,14}$/;
 
-const schema = z.object({
-  name: z.string().min(1, "Name required").max(100),
-  messageType: z.enum(["TEXT", "TEMPLATE"]),
-  messageBody: z.string().optional(),
-  templateId: z.string().optional(),
-  delayMs: z.number().min(500).max(10000).default(1200),
-});
+const schema = z
+  .object({
+    name: z.string().min(1, "Name required").max(100),
+    messageType: z.enum(["TEXT", "TEMPLATE"]),
+    messageBody: z.string().max(4096).optional(),
+    templateId: z.string().optional(),
+    delayMs: z.number().min(500).max(10000).default(1200),
+  })
+  .superRefine((val, ctx) => {
+    if (val.messageType === "TEXT" && !val.messageBody?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Message body is required",
+        path: ["messageBody"],
+      });
+    }
+    if (val.messageType === "TEMPLATE" && !val.templateId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select a template",
+        path: ["templateId"],
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -143,7 +160,12 @@ export function CampaignForm({ onSuccess }: CampaignFormProps) {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, phoneNumbers: uniquePhones }),
+        body: JSON.stringify({
+          ...values,
+          phoneNumbers: uniquePhones,
+          messageBody: values.messageBody?.trim() || undefined,
+          templateId: values.templateId || undefined,
+        }),
       });
 
       const data = await res.json();
