@@ -17,7 +17,16 @@ export function cn(...inputs: ClassValue[]): string {
  */
 export function formatPhone(phone: string): string {
   const stripped = phone.replace(/[^\d+]/g, "");
-  return stripped.startsWith("+") ? stripped : `+${stripped}`;
+
+  if (stripped.startsWith("+")) return stripped;
+
+  // 10-digit Indian mobile (6-9 prefix): 9876543210 → +919876543210
+  if (/^[6-9]\d{9}$/.test(stripped)) return `+91${stripped}`;
+
+  // 11-digit with leading 0 (STD format): 09876543210 → +919876543210
+  if (/^0[6-9]\d{9}$/.test(stripped)) return `+91${stripped.slice(1)}`;
+
+  return `+${stripped}`;
 }
 
 /**
