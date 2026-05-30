@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,9 +53,17 @@ interface CampaignFormProps {
   onSuccess?: (campaign: { id: string; name: string }) => void;
 }
 
+interface Template {
+  id: string;
+  name: string;
+  category: string;
+}
+
 export function CampaignForm({ onSuccess }: CampaignFormProps) {
   const [loading, setLoading] = useState(false);
   const [recipientTab, setRecipientTab] = useState("paste");
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [pastedText, setPastedText] = useState("");
   const [phones, setPhones] = useState<string[]>([]);
   const [csvDragging, setCsvDragging] = useState(false);
@@ -74,6 +82,16 @@ export function CampaignForm({ onSuccess }: CampaignFormProps) {
 
   const messageType = form.watch("messageType");
   const delayMs = form.watch("delayMs");
+
+  useEffect(() => {
+    if (messageType !== "TEMPLATE") return;
+    setTemplatesLoading(true);
+    fetch("/api/templates")
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .catch(() => setTemplates([]))
+      .finally(() => setTemplatesLoading(false));
+  }, [messageType]);
 
   function handlePasteChange(text: string) {
     setPastedText(text);
@@ -325,14 +343,36 @@ export function CampaignForm({ onSuccess }: CampaignFormProps) {
             name="templateId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Template ID</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Template UUID from your templates"
-                    className="font-mono"
-                    {...field}
-                  />
-                </FormControl>
+                <FormLabel>Select Template</FormLabel>
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  disabled={templatesLoading}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          templatesLoading
+                            ? "Loading templates…"
+                            : templates.length === 0
+                            ? "No templates found — create one first"
+                            : "Choose a template"
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <span className="font-medium">{t.name}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {t.category}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
